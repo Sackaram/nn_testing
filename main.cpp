@@ -23,9 +23,9 @@ std::uniform_real_distribution<> dis(-0.05, 0.05);
 
 
 std::string formatNr(long nr) {
+    if (std::to_string(nr).length() < 4) { return std::to_string(nr); }
 
     std::string newString = std::to_string(nr);
-
     for (size_t i = newString.length() - 3; i >= 1; i -= 3) {
         newString.insert(i, 1, '.');
     }
@@ -47,7 +47,7 @@ class NeuralNetwork {
         Node(float (*activFunc)(float), float (*activFuncDeriv)(float))
             : output(0), delta(0), activFunc(activFunc), activFuncDeriv(activFuncDeriv), bias(dis(gen)) {}
 
-        Node(float (*activFunc)(float), float (*activFuncDeriv)(float), unsigned nrWeights)
+        Node(float (*activFunc)(float), float (*activFuncDeriv)(float), int nrWeights)
             : output(0), delta(0), activFunc(activFunc), activFuncDeriv(activFuncDeriv), bias(dis(gen)) {
             for (size_t i = 0; i < nrWeights; i++) {
                 weights.push_back(dis(gen));
@@ -60,7 +60,7 @@ class NeuralNetwork {
 
     struct Layer {
         std::vector<Node> nodes;
-        Layer(unsigned size) : nodes(size) {}
+        Layer(int size) : nodes(size) {}
         void clearInputWeights() {
             for (Node &nod : nodes) {
                 nod.weights.clear();
@@ -175,8 +175,8 @@ class NeuralNetwork {
     float (*outputActivFuncDeriv)(float);
     void (*lossFunction)(void);
 
-  public:
-    NeuralNetwork(std::vector<unsigned> dimentions, float lr, size_t itr = 1000)
+  public: // set a defualt lr ??
+    NeuralNetwork(std::vector<int> dimentions, float lr, size_t itr = 1000)
         : iterations(itr), gradientClipping(false), LR(lr), lastErrors(200, __FLT_MAX__), gradiantTreshold(0.005),
           bestCumulative(__FLT_MAX__) {
 
@@ -194,27 +194,33 @@ class NeuralNetwork {
         assert(input.size() == target.size());
         setNrInputWeights(1);
 
+
         size_t printIterations = (iterations + 4) / 5;
         for (size_t i = 0; i < iterations; i++) {
             for (size_t j = 0; j < input.size(); j++) {
                 this->input = {input[j]};
                 this->target = {target[j]};
 
+
                 propagate();
                 backprop();
-                if (i % printIterations == 0) { printInfo(i); }
+                // std::cout << "We are crashing here...." << std::endl;
+
+                // if (i % printIterations == 0) { printInfo(i); }  // <----- this is the crashing part ????
+                std::cout << "123..." << std::endl;
+                printInfo(i);
             }
-            calcCumulativeError();
+            /* calcCumulativeError();
             if (cumulativeError <= threshold) {
                 std::cout << "---Stopping,  cumulativeError <= threshold: " << threshold << ". After: " << i << " iterations---"
                           << std::endl;
                 return;
-            }
+            } */
         }
-        calcCumulativeError();
-        size_t size = lastErrors.size();
-        std::cout << "\nThe best cumulative error was: " << bestCumulative << std::endl;
-        std::cout << "Meaning, the average error the last: " << size << " propagations was: " << (bestCumulative / size) << std::endl;
+        /*  calcCumulativeError();
+         size_t size = lastErrors.size();
+         std::cout << "\nThe best cumulative error was: " << bestCumulative << std::endl;
+         std::cout << "Meaning, the average error the last: " << size << " propagations was: " << (bestCumulative / size) << std::endl; */
     }
 
     void train(std::vector<std::vector<float>> &input, std::vector<float> &target) {
@@ -393,7 +399,7 @@ class NeuralNetwork {
 
 
   private:
-    void init(const std::vector<unsigned> &dimensions) {
+    void init(const std::vector<int> &dimensions) {
         for (size_t i = 0; i < dimensions.size(); i++) {
             Layer layer(dimensions[i]);
             for (size_t j = 0; j < dimensions[i]; j++) {
@@ -416,7 +422,7 @@ class NeuralNetwork {
          } */
     }
 
-    void setNrInputWeights(unsigned nrInputs) {
+    void setNrInputWeights(int nrInputs) {
         layers[0].clearInputWeights();
         for (size_t i = 0; i < layers[0].nodes.size(); i++) {
             for (size_t j = 0; j < nrInputs; j++) {
@@ -456,7 +462,7 @@ class NeuralNetwork {
             for (size_t j = 0; j < layers[i].nodes.size(); j++) {
                 float error = 0;
                 for (size_t k = 0; k < layers[i + 1].nodes.size(); k++) {
-                    std::cout << "j: " << j << " i: " << i  << std::endl;
+                    std::cout << "j: " << j << " i: " << i << std::endl;
                     error += layers[i + 1][k].weights[j] * layers[i + 1][k].delta;
                 }
                 layers[i][j].setDelta(error);
@@ -527,7 +533,9 @@ class NeuralNetwork {
     }
 
     void printInfo(int itr) {
+
         std::cout << "Iteration: " << formatNr(itr) << std::endl;
+
         std::cout << "Input was: ";
         for (size_t i = 0; i < input.size(); i++) {
             std::cout << input[i] << " ";
@@ -547,61 +555,15 @@ int main() {
 
     std::vector<float> input1 = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};       // single input
     std::vector<float> target1 = {2, 4, 6, 8, 10, 12, 14, 16, 18, 20}; // target is input * 2
-    // ------------------------------------------------------------------------------------------------------------------------------
-
-    std::vector<std::vector<float>> input2 = {{1, 2},   {3, 4},   {5, 6},  {7, 8},  {9, 10}, {11, 12}, {13, 14},
-                                              {15, 16}, {17, 18}, {22, 2}, {10, 1}, {1, 2},  {70, 3},  {60, 2}}; // two inputs
-    std::vector<float> target2 = {3, 7, 11, 15, 19, 23, 27, 31, 35, 24, 11, 3, 73, 62}; // target is the sum of input1 and input2
-    // ------------------------------------------------------------------------------------------------------------------------------
-
-    std::vector<std::vector<float>> input3 = {{1, 2},   {3, 4},   {5, 6},  {7, 8},  {9, 10}, {11, 12}, {13, 14},
-                                              {15, 16}, {17, 18}, {22, 2}, {10, 1}, {1, 2},  {70, 3},  {60, 2}};
-    std::vector<float> target3 = {-1, -1, -1, -1, -1, -1, -1, -1, -1, 20, 9, -1, 67, 58}; // two inputs, target is input1 - input2
-    // ------------------------------------------------------------------------------------------------------------------------------
-
-    std::vector<std::vector<float>> input4 = {{1, 2},  {2, 3},  {3, 4},  {5, 6},  {1, 2},  {7, 8},   {9, 10}, {11, 12}, {13, 14}, {15, 16},
-                                              {1, 2},  {70, 3}, {2, 2},  {10, 3}, {50, 2}, {14, 13}, {30, 3}, {3, 8},   {2, 30},  {1, 40},
-                                              {4, 30}, {2, 20}, {5, 30}, {10, 4}, {4, 4},  {5, 5},   {1, 9},  {4, 9},   {13, 4},  {3, 43},
-                                              {9, 1},  {30, 2}, {45, 3}, {44, 2}, {31, 3}, {5, 11},  {77, 2}, {1, 44},  {0, 80},  {33, 0},
-                                              {99, 1}, {50, 3}, {0, 44}, {6, 12}, {20, 4}, {0, 44},  {11, 0}, {13, 1}}; // two inputs
-    std::vector<float> target4 = {2,   6,  12, 30, 2,   56, 90,  132, 182, 240, 2, 210, 4,  30,  100, 182,
-                                  90,  24, 60, 40, 120, 40, 150, 40,  16,  25,  9, 36,  52, 129, 9,   60,
-                                  135, 88, 93, 55, 154, 44, 0,   0,   99,  150, 0, 72,  80, 0,   0,   13};
-    // target is the product of input1 and input2
-    // ------------------------------------------------------------------------------------------------------------------------------
-
-    std::vector<int> input5 = {1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11, 12, 13, 14, 15,
-                               16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30};
-    std::vector<int> target5 = {0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0,  // classification
-                                1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1}; // 0 if odd, 1 if even
-    // ------------------------------------------------------------------------------------------------------------------------------
-
-    std::vector<std::vector<int>> input6 = {{1, 2}, {3, 4}, {5, 5}, {7, 3}, {6, 6}, {2, 2}, {8, 4}, {10, 1}, {0, 11}, {4, 7}};
-    std::vector<int> target6 = {0, 0, 0, 0, 1, 0, 1, 1, 1, 1}; // 1 if sum > 10, else 0
 
 
-    NeuralNetwork nn1({1,3,5}, 0.01, 1000);
-    /*     NeuralNetwork nn2({2, 1}, 0.01, 150);
-        NeuralNetwork nn3({2, 1}, 0.01, 420);
-        NeuralNetwork nn4({2, 16, 16, 10, 1}, 0.0001, 100 * 1000); */
+    NeuralNetwork nn1({1}, 0.1, 100);
+    // nn1.printWeights();
 
 
-    // nn1.setgradientClipping("true", 5);
     nn1.train(input1, target1);
-    nn1.printWeights();
 
-
-    // nn2.train(input2, target2);
-
-
-    // nn3.setgradientClipping("true", 3);
-    // nn3.train(input3, target3);
-
-
-    /* nn4.setgradientClipping("true", 2);
-    std::vector<float> temp = {7, 1};
-    std::cout << "predict: " << nn4.predict(temp) << std::endl; */
-
+    std::cout << "Program did not crash" << std::endl;
 
     return 0;
 }
